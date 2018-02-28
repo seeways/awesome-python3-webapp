@@ -26,7 +26,7 @@ async def create_pool(loop, **kw):
         port=kw.get("port", 3306),  # 端口号，默认3306
         user=kw["user"],  # 用户名，默认root
         password=kw["password"],  # 密码， 默认无
-        db=kw["db"],  # 数据库
+        db=kw["database"],  # 数据库
         charset=kw.get("charset", "utf8"),  # 字符集
         autocommit=kw.get("autocommit", True),  # 自动提交事务
         maxsize=kw.get("maxsize", 10),  # 最大连接数
@@ -45,54 +45,42 @@ async def create_pool(loop, **kw):
 async def select(sql, args, size=None):
     log(sql, True, args)
     global __pool
-    with (await __pool) as conn:
-        # 获取游标
-        cur = await conn.cursor(aiomysql.DictCursor)
-        # SQL语句的占位符是?  MySQL的占位符是%s，所以注意替换
-        await cur.execute(sql.replace("?", "%s"), args or ())
-        if size:
-            rs = await cur.fetchmany(size)
-        else:
-            rs = await cur.fetchall()
-        await cur.close()
+
+    async with __pool.get() as conn:
+        try:
+            # 获取游标
+            async with conn.cursor(aiomysql.DictCursor) as cur:
+                # SQL语句的占位符是?  MySQL的占位符是%s，注意替换
+                await cur.execute(sql.replace("?", "%s"), args or ())
+                if size:
+                    rs = await cur.fetchmany(size)
+                else:
+                    rs = await cur.fetchall()
+        except Exception as e:
+            rs = []
+            log(e)
+
         log("rows returned:{}".format(len(rs)))
         return rs
 
 
-# 你要问我为啥这样，是为了增加可读性，和以后的扩展
-async def insert(sql, args):
-    """
-    try to use execute(sql,args), like this
-    """
-    execute(sql, args)
-
-
-async def delete(sql, args):
-    """
-    try to use execute(sql,args), like this
-    """
-    execute(sql, args)
-
-
-async def update(sql, args):
-    """
-    try to use execute(sql,args), like this
-    """
-    execute(sql, args)
-
-
 # 增删改和查不同
 # cursor对象不返回结果集，而是通过rowcount返回结果数。
-async def execute(sql, args):
+async def execute(sql, args, autocommit=True):
     log(sql, True, args)
 
-    with (await __pool) as conn:
+    async with __pool.get() as conn:
+        if not autocommit:
+            await conn.begin()
         try:
-            cur = await conn.cursor()
-            await cur.execute(sql.replace("?", "%s"), args)
-            affected = cur.rowcount()  # 获取执行个数
-            await cur.close()
+            async with conn.cursor(aiomysql.DictCursor) as cur:
+                await cur.execute(sql.replace("?", "%s"), args)
+                affected = cur.rowcount  # 获取执行个数
+            if not autocommit:
+                await conn.commit()
         except BaseException:
+            if not autocommit:
+                await conn.rollback()
             raise
         return affected
 
@@ -129,7 +117,7 @@ class Field(object):
 
 
 class StringField(Field):
-    def __init__(self, name=None, primary_key=False, default=None, ddl="text"):
+    def __init__(self, name=None, primary_key=False, default=None, ddl="varchar(128)"):
         super().__init__(name, ddl, primary_key, default)
 
 
@@ -204,6 +192,7 @@ class ModelMetaclass(type):
 
 # 定义ORM映射的基类
 class Model(dict, metaclass=ModelMetaclass):
+
     def __init__(self, **kw):
         super(Model, self).__init__(**kw)
 
@@ -230,9 +219,46 @@ class Model(dict, metaclass=ModelMetaclass):
         return value
 
     @classmethod
+    async def findAll(cls, where=None, args=None, **kw):
+        sql = [cls.__select__]
+        if where:
+            sql.append("where")
+            sql.append(where)
+        if args is None:
+            args = []
+        orderBy = kw.get("orderBy", None)
+        if orderBy:
+            sql.append("order by")
+            sql.append(orderBy)
+        limit = kw.get("limit", None)
+        if limit is not None:
+            sql.append("limit")
+            if isinstance(limit, int):
+                sql.append("?")
+                args.append(limit)
+            elif isinstance(limit, tuple) and len(limit) == 2:
+                sql.append("?, ?")
+                args.extend(limit)
+            else:
+                raise ValueError("invalid limit value: %s" % str(limit))
+
+        rs = await select(" ".join(sql), args)
+        return [cls(**r) for r in rs]
+
+    @classmethod
+    async def findNumber(cls, selectField, where=None, args=None):
+        sql = ["select %s _num_ from `%s`" % (selectField, cls.__table__)]
+        if where:
+            sql.append("where")
+            sql.append(where)
+        rs = await select(" ".join(sql), args, 1)
+        if len(rs) == 0:
+            return None
+        return rs[0]["_num_"]
+
+    @classmethod
     async def find(cls, pk):
-        """find object by primary_key"""
-        rs = await select("%s where `%s`=?" % (cls.__select__, cls.__primary_key__), [pk], 1)
+        rs = await select('%s where `%s`=?' % (cls.__select__, cls.__primary_key__), [pk], 1)
         if len(rs) == 0:
             return None
         return cls(**rs[0])
@@ -240,7 +266,19 @@ class Model(dict, metaclass=ModelMetaclass):
     async def save(self):
         args = list(map(self.getValueOrDefault, self.__fields__))
         args.append(self.getValueOrDefault(self.__primary_key__))
-        rows = await insert(self.__insert__, args)
+        rows = await execute(self.__insert__, args)
         if rows != 1:
-            logging.warn("failed to insert record: affected rows:{}".format(rows))
+            log("failed to insert record: affected rows:{}".format(rows))
 
+    async def update(self):
+        args = list(map(self.getValue, self.__fields__))
+        args.append(self.getValue(self.__primary_key__))
+        rows = await execute(self.__update__, args)
+        if rows != 1:
+            log('failed to update by primary key: affected rows: %s' % rows)
+
+    async def remove(self):
+        args = [self.getValue(self.__primary_key__)]
+        rows = await execute(self.__delete__, args)
+        if rows != 1:
+            log('failed to remove by primary key: affected rows: %s' % rows)
