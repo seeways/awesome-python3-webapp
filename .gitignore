@@ -1,3 +1,5 @@
 # Created by .ignore support plugin (hsz.mobi)
 .idea/
 awesome-python3-webapp.iml
+www/__pycache__/
+www/templates/__pycache__/
