@@ -5,10 +5,6 @@
 # Github   : https://github.com/seeways
 
 """url handlers, 处理各种URL请求"""
-
-_ADMIN_EMAIL = "1876665310@qq.com"
-
-import asyncio
 import hashlib
 import json
 import re
@@ -21,12 +17,13 @@ from logger import logger
 from models import User, Comment, Blog, next_id
 from web_framework import get, post
 
+_ADMIN_EMAIL = "1876665310@qq.com"
+
 """
 @get('/')
-@asyncio.coroutine
 # 制定url是'/'的处理函数为index
-def index(request):
-	users = yield from User.findAll()
+async def index(request):
+	users = await User.findAll()
 	return{
 		'__template__': 'test.html',
 		'users': users
@@ -36,11 +33,10 @@ def index(request):
 
 """
 @get('/api/users')
-@asyncio.coroutine
-def api_get_users(*, page = '1'):
+async def api_get_users(*, page = '1'):
 	page_index = get_page_index(page)
 	# 获取到要展示的博客页数是第几页
-	user_count = yield from User.findNumber('count(id)')
+	user_count = await User.findNumber('count(id)')
 	# count为MySQL中的聚集函数，用于计算某列的行数
 	# user_count代表了有多个用户id
 	p = Page(user_count, page_index, page_size = 2)
@@ -49,7 +45,7 @@ def api_get_users(*, page = '1'):
 	if user_count == 0:
 		return dict(page = p, users = ())
 	else:
-		users = yield from User.findAll(orderBy = 'created_at desc', limit = (p.offset, p.limit))
+		users = await User.findAll(orderBy = 'created_at desc', limit = (p.offset, p.limit))
 		# page.offset表示从那一行开始检索，page.limit表示检索多少行
 	for u in users:
 		u.passwd = '******************'
@@ -100,8 +96,7 @@ def user2cookie(user, max_age):
 
 
 # 根据cookie字符串，解析出用户相关信息
-@asyncio.coroutine
-def cookie2user(cookie_str):
+async def cookie2user(cookie_str):
     if not cookie_str:
         return None
     try:
@@ -114,7 +109,7 @@ def cookie2user(cookie_str):
         if int(expires) < time.time():
             # 如果超时(超过一天)，返回None
             return None
-        user = yield from User.find(uid)
+        user = await User.find(uid)
         # 根据用户id(id为primary key)查找库，对比有没有该用户
         if user is None:
             return None
@@ -131,24 +126,28 @@ def cookie2user(cookie_str):
         return None
 
 
-'''@get('/')
-@asyncio.coroutine
-def index(request):
-	summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.'
-	blogs = yield from Blog.findAll(orderBy='created_at desc')
-	return {
-		'__template__': 'blogs.html',
-		'blogs': blogs
-	}'''
+# @get('/')
+# async def index(request):
+#     summary = 'Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore ' \
+#               'et dolore magna aliqua. '
+#     # blogs = await Blog.findAll(orderBy='created_at desc')
+#     blogs = [
+#         Blog(id='1', name='Test Blog', summary=summary, created_at=time.time()-120),
+#         Blog(id='2', name='Something New', summary=summary, created_at=time.time()-3600),
+#         Blog(id='3', name='Learn Swift', summary=summary, created_at=time.time()-7200)
+#     ]
+#     return {
+#         '__template__': 'blogs.html',
+#         'blogs': blogs
+#     }
 
 
 @get('/')
-@asyncio.coroutine
-def index(*, page='1'):
+async def index(*, page='1'):
     # 获取到要展示的博客页数是第几页
     page_index = get_page_index(page)
     # 查找博客表里的条目数
-    num = yield from Blog.findNumber('count(id)')
+    num = await Blog.findNumber('count(id)')
 
     # 如果表里没有条目，则不需要显示
     if (not num) and num == 0:
@@ -159,7 +158,7 @@ def index(*, page='1'):
         page = Page(num, page_index)
 
         # 否则，根据计算出来的offset(取的初始条目index)和limit(取的条数)，来取出条目
-        blogs = yield from Blog.findAll(orderBy='created_at desc', limit=(page.offset, page.limit))
+        blogs = await Blog.findAll(orderBy='created_at desc', limit=(page.offset, page.limit))
     # 返回给浏览器
     return {
         '__template__': 'blogs.html',
@@ -172,16 +171,14 @@ def index(*, page='1'):
 
 # 注册页面
 @get('/register')
-@asyncio.coroutine
-def register():
+async def register():
     return {
         '__template__': 'register.html'
     }
 
 
 @post('/api/users')
-@asyncio.coroutine
-def api_register_user(*, email, name, passwd):
+async def api_register_user(*, email, name, passwd):
     if not name or not name.strip():
         raise APIValueError('name')
     if not email or not _RE_EMAIL.match(email):
@@ -190,7 +187,7 @@ def api_register_user(*, email, name, passwd):
     if not passwd or not _RE_SHA1.match(passwd):
         raise APIError('passwd')
 
-    users = yield from User.findAll('email=?', [email])
+    users = await User.findAll('email=?', [email])
     # 查一下库里是否有相同的email地址，如果有的话提示用户email已经被注册过
     if len(users):
         raise APIError('register:failed', 'email', 'Email is already in use.')
@@ -209,7 +206,7 @@ def api_register_user(*, email, name, passwd):
                 admin=admin)
     # 注意数据库中存储的passwd是经过SHA1计算后的40位Hash字符串，所以服务器端并不知道用户的原始口令。
 
-    yield from user.save()
+    await user.save()
     # 保存这个用户到数据库用户表
     logger.info('save user OK')
     r = web.Response()
@@ -225,36 +222,30 @@ def api_register_user(*, email, name, passwd):
 
 # 登陆页面
 @get('/signin')
-@asyncio.coroutine
-def signin():
+async def signin():
     return {
         '__template__': 'signin.html'
     }
 
-
+# 登录状态检查
 @post('/api/authenticate')
-@asyncio.coroutine
-def authenticate(*, email, passwd):
+async def authenticate(*, email, passwd):
     if not email:
         raise APIValueError('email', 'Invalid email.')
     if not passwd:
         raise APIValueError('passwd', 'Invalid password.')
 
-    users = yield from User.findAll('email=?', [email])
+    users = await User.findAll('email=?', [email])
     # 根据email在库里查找匹配的用户
     if not len(users):
-        raise APIValueError('email', 'email not exist')
+        raise APIValueError('email', '邮箱不存在')
     user = users[0]
-
+    # 可以理解为加盐
     browser_sha1_passwd = '%s:%s' % (user.id, passwd)
     browser_sha1 = hashlib.sha1(browser_sha1_passwd.encode('utf-8'))
-    '''sha1 = hashlib.sha1()
-	sha1.update(user.id.encode('utf-8'))
-	sha1.update(b':')
-	# 在Python 3.x版本中，把'xxx'和u'xxx'统一成Unicode编码，即写不写前缀u都是一样的，而以字节形式表示的字符串则必须加上b前缀：b'xxx'。
-	sha1.update(passwd.encode('utf-8'))'''
+
     if user.passwd != browser_sha1.hexdigest():
-        raise APIValueError('passwd', 'Invalid passwd')
+        raise APIValueError("passwd", "无效密码")
 
     r = web.Response()
     r.set_cookie(COOKIE_NAME, user2cookie(user, 86400), max_age=86400, httponly=True)
@@ -269,7 +260,7 @@ def authenticate(*, email, passwd):
 
 
 @get('/signout')
-def signout(request):
+async def signout(request):
     referer = request.headers.get('Referer')
     r = web.HTTPFound(referer or '/')
     # 清理掉cookie得用户信息数据
@@ -281,10 +272,9 @@ def signout(request):
 # -----------------------------------------------------用户管理------------------------------------
 
 @get('/show_all_users')
-@asyncio.coroutine
-def show_all_users():
+async def show_all_users():
     # 显示所有的用户
-    users = yield from User.findAll()
+    users = await User.findAll()
     logger.info('to index...')
     # return (404, 'not found')
 
@@ -295,10 +285,9 @@ def show_all_users():
 
 
 @get('/api/users')
-@asyncio.coroutine
-def api_get_users(request):
+async def api_get_users(request):
     # 返回所有的用户信息jason格式
-    users = yield from User.findAll(orderBy='created_at desc')
+    users = await User.findAll(orderBy='created_at desc')
     logger.info('users = %s and type = %s' % (users, type(users)))
     for u in users:
         u.passwd = '******'
@@ -306,8 +295,7 @@ def api_get_users(request):
 
 
 @get('/manage/users')
-@asyncio.coroutine
-def manage_users(*, page='1'):
+async def manage_users(*, page='1'):
     # 查看所有用户
     return {
         '__template__': 'manage_users.html',
@@ -318,8 +306,7 @@ def manage_users(*, page='1'):
 # ------------------------------------------博客管理的URL处理函数----------------------------------
 
 @get('/manage/blogs/create')
-@asyncio.coroutine
-def manage_create_blog():
+async def manage_create_blog():
     # 写博客页面
     return {
         '__template__': 'manage_blog_edit.html',
@@ -329,8 +316,7 @@ def manage_create_blog():
 
 
 @get('/manage/blogs')
-@asyncio.coroutine
-def manage_blogs(*, page='1'):
+async def manage_blogs(*, page='1'):
     # 博客管理页面
     return {
         '__template__': "manage_blogs.html",
@@ -339,8 +325,7 @@ def manage_blogs(*, page='1'):
 
 
 @post('/api/blogs')
-@asyncio.coroutine
-def api_create_blog(request, *, name, summary, content):
+async def api_create_blog(request, *, name, summary, content):
     check_admin(request)
     # 只有管理员可以写博客 ,调用位置：manage_blog_edit.html 22行
     if not name or not name.strip():
@@ -352,33 +337,31 @@ def api_create_blog(request, *, name, summary, content):
 
     blog = Blog(user_id=request.__user__.id, user_name=request.__user__.name, user_image=request.__user__.image,
                 name=name.strip(), summary=summary.strip(), content=content.strip())
-    yield from blog.save()
+    await blog.save()
     return blog
 
 
 @get('/api/blogs')
-@asyncio.coroutine
-def api_blogs(*, page='1'):
+async def api_blogs(*, page='1'):
     # 获取博客信息,调用位置：manage_blogs.html 40行
     '''
 	请参考29行的api_get_users函数的注释
 	'''
     page_index = get_page_index(page)
-    blog_count = yield from Blog.findNumber('count(id)')
+    blog_count = await Blog.findNumber('count(id)')
     p = Page(blog_count, page_index)
     if blog_count == 0:
         return dict(page=p, blogs=[])
-    blogs = yield from Blog.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
+    blogs = await Blog.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
     return dict(page=p, blogs=blogs)
 
 
 @get('/blog/{id}')
-@asyncio.coroutine
-def get_blog(id):
+async def get_blog(id):
     # 根据博客id查询该博客信息
-    blog = yield from Blog.find(id)
+    blog = await Blog.find(id)
     # 根据博客id查询该条博客的评论
-    comments = yield from Comment.findAll('blog_id=?', [id], orderBy='created_at desc')
+    comments = await Comment.findAll('blog_id=?', [id], orderBy='created_at desc')
     # markdown2是个扩展模块，这里把博客正文和评论套入到markdonw2中
     for c in comments:
         c.html_content = text2html(c.content)
@@ -392,33 +375,30 @@ def get_blog(id):
 
 
 @get('/api/blogs/{id}')
-@asyncio.coroutine
-def api_get_blog(*, id):
+async def api_get_blog(*, id):
     # 获取某条博客的信息
-    blog = yield from Blog.find(id)
+    blog = await Blog.find(id)
     return blog
 
 
 @post('/api/blogs/{id}/delete')
-@asyncio.coroutine
-def api_delete_blog(id, request):
+async def api_delete_blog(id, request):
     # 删除一条博客
     logger.info("删除博客的博客ID为：%s" % id)
     # 先检查是否是管理员操作，只有管理员才有删除评论权限
     check_admin(request)
     # 查询一下评论id是否有对应的评论
-    b = yield from Blog.find(id)
+    b = await Blog.find(id)
     # 没有的话抛出错误
     if b is None:
         raise APIResourceNotFoundError('Comment')
     # 有的话删除
-    yield from b.remove()
+    await b.remove()
     return dict(id=id)
 
 
 @post('/api/blogs/modify')
-@asyncio.coroutine
-def api_modify_blog(request, *, id, name, summary, content):
+async def api_modify_blog(request, *, id, name, summary, content):
     # 修改一条博客
     logger.info("修改的博客的博客ID为：%s", id)
     # name，summary,content 不能为空
@@ -430,19 +410,18 @@ def api_modify_blog(request, *, id, name, summary, content):
         raise APIValueError('content', 'content cannot be empty')
 
     # 获取指定id的blog数据
-    blog = yield from Blog.find(id)
+    blog = await Blog.find(id)
     blog.name = name
     blog.summary = summary
     blog.content = content
 
     # 保存
-    yield from blog.update()
+    await blog.update()
     return blog
 
 
 @get('/manage/blogs/modify/{id}')
-@asyncio.coroutine
-def manage_modify_blog(id):
+async def manage_modify_blog(id):
     # 修改博客的页面
     return {
         '__template__': 'manage_blog_modify.html',
@@ -456,14 +435,12 @@ def manage_modify_blog(id):
 
 # 评论管理页面
 @get('/manage/')
-@asyncio.coroutine
-def manage():
+async def manage():
     return 'redirect:/manage/comments'
 
 
 @get('/manage/comments')
-@asyncio.coroutine
-def manage_comments(*, page='1'):
+async def manage_comments(*, page='1'):
     # 查看所有评论
     return {
         '__template__': 'manage_comments.html',
@@ -472,21 +449,19 @@ def manage_comments(*, page='1'):
 
 
 @get('/api/comments')
-@asyncio.coroutine
-def api_comments(*, page='1'):
+async def api_comments(*, page='1'):
     # 根据page获取评论，注释可参考 index 函数的注释，不细写了
     page_index = get_page_index(page)
-    num = yield from Comment.findNumber('count(id)')
+    num = await Comment.findNumber('count(id)')
     p = Page(num, page_index)
     if num == 0:
         return dict(page=p, comments=())
-    comments = yield from Comment.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
+    comments = await Comment.findAll(orderBy='created_at desc', limit=(p.offset, p.limit))
     return dict(page=p, comments=comments)
 
 
 @post('/api/blogs/{id}/comments')
-@asyncio.coroutine
-def api_create_comment(id, request, *, content):
+async def api_create_comment(id, request, *, content):
     # 对某个博客发表评论
     user = request.__user__
     # 必须为登陆状态下，评论
@@ -496,7 +471,7 @@ def api_create_comment(id, request, *, content):
     if not content or not content.strip():
         raise APIValueError('content')
     # 查询一下博客id是否有对应的博客
-    blog = yield from Blog.find(id)
+    blog = await Blog.find(id)
     # 没有的话抛出错误
     if blog is None:
         raise APIResourceNotFoundError('Blog')
@@ -504,22 +479,21 @@ def api_create_comment(id, request, *, content):
     comment = Comment(blog_id=blog.id, user_id=user.id, user_name=user.name,
                       user_image=user.image, content=content.strip())
     # 保存到评论表里
-    yield from comment.save()
+    await comment.save()
     return comment
 
 
 @post('/api/comments/{id}/delete')
-@asyncio.coroutine
-def api_delete_comments(id, request):
+async def api_delete_comments(id, request):
     # 删除某个评论
     logger.info(id)
     # 先检查是否是管理员操作，只有管理员才有删除评论权限
     check_admin(request)
     # 查询一下评论id是否有对应的评论
-    c = yield from Comment.find(id)
+    c = await Comment.find(id)
     # 没有的话抛出错误
     if c is None:
         raise APIResourceNotFoundError('Comment')
     # 有的话删除
-    yield from c.remove()
+    await c.remove()
     return dict(id=id)

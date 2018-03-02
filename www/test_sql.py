@@ -11,7 +11,8 @@ from models import User, Blog, Comment
 @asyncio.coroutine
 def test(loop):
     yield from orm.create_pool(loop=loop, user='root', password='123456', database='awesome')
-    u = User(name='TaoYuan', email='1876665310@qq.com', passwd='123abc', image='about:blank')
+    # taoyuan 123456
+    u = User(name='TaoYuan', email='taoyuan', passwd='396d447288c288f0ff7ba1fc608600d7e233646d', image='about:blank')
     yield from u.save()
 
 

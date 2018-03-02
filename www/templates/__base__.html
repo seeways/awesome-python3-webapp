@@ -1,27 +1,11 @@
 <!DOCTYPE html>
-<!--
-{% macro pagination(url, page) %}
-    <ul class="uk-pagination">
-        {% if page.has_previous %}
-            <li><a href="{{ url }}{{ page.page_index - 1 }}"><i class="uk-icon-angle-double-left"></i></a></li>
-        {% else %}
-            <li class="uk-disabled"><span><i class="uk-icon-angle-double-left"></i></span></li>
-        {% endif %}
-            <li class="uk-active"><span>{{ page.page_index }}</span></li>
-        {% if page.has_next %}
-            <li><a href="{{ url }}{{ page.page_index + 1 }}"><i class="uk-icon-angle-double-right"></i></a></li>
-        {% else %}
-            <li class="uk-disabled"><span><i class="uk-icon-angle-double-right"></i></span></li>
-        {% endif %}
-    </ul>
-{% endmacro %}
--->
+
 <html>
 
 <head>
     <meta charset="utf-8" /> {% block meta %}
     <!-- block meta  -->{% endblock %}
-    <title>{% block title %} ? {% endblock %} - Awesome Python Webapp</title>
+    <title>{% block title %} ? {% endblock %} - 贾韬渊的博客</title>
     <link rel="stylesheet" href="/static/css/uikit.min.css">
     <link rel="stylesheet" href="/static/css/uikit.gradient.min.css">
     <!--<link rel="stylesheet" href="/static/css/awesome.css" />-->
@@ -32,20 +16,22 @@
     <script src="/static/js/vue.min.js"></script>
     <script src="/static/js/awesome.js"></script>
     {% block beforehead %}
-    <!-- before head  -->{% endblock %}
+    <!-- 继承者插入  -->
+    {% endblock %}
 </head>
 
 <body>
+    <!-- header -->
     <nav class="uk-navbar uk-navbar-attached uk-margin-bottom">
         <div class="uk-container uk-container-center">
-            <a href="/" class="uk-navbar-brand">贾韬渊的博客</a>
+            <a href="/" class="uk-navbar-brand"><i class="uk-icon-globe"></i>  贾韬渊的博客</a>
             <ul class="uk-navbar-nav">
                 <li data-url="blogs"><a href="/"><i class="uk-icon-home"></i> 日志</a></li>
-                <!--这里放后台管理的连接方便测试-->
-                <li><a href="http://118.126.103.180/manage/blogs"><i class="uk-icon-book"></i> 博文管理</a></li>
-                <li><a href="http://118.126.103.180/manage/users"><i class="uk-icon-book"></i> 用户管理</a></li>
-                <li><a href="http://118.126.103.180/manage/comments"><i class="uk-icon-book"></i> 评论管理</a></li>
-                <li><a target="_blank" href="https://github.com/seeways/awesome-python3-webapp"><i class="uk-icon-code"></i> <strong>源码</strong></a></li>
+
+                <li><a href="/manage/blogs"><i class="uk-icon-book"></i> 博文管理</a></li>
+                <li><a href="/manage/users"><i class="uk-icon-book"></i> 用户管理</a></li>
+                <li><a href="/manage/comments"><i class="uk-icon-book"></i> 评论管理</a></li>
+                <li><a target="_blank" href="https://github.com/seeways/awesome-python3-webapp"><i class="uk-icon-code"></i><strong>博客源码</strong></a></li>
             </ul>
             <div class="uk-navbar-flip">
                 <ul class="uk-navbar-nav">
@@ -66,6 +52,8 @@
             </div>
         </div>
     </nav>
+
+    <!-- content -->
     <div class="uk-container uk-container-center">
         <div class="uk-grid">
             <!-- content -->
@@ -73,18 +61,19 @@
             <!-- // content -->
         </div>
     </div>
+
+    <!-- footer -->
     <div class="uk-margin-large-top" style="background-color:#eee; border-top:1px solid #ccc;">
         <div class="uk-container uk-container-center uk-text-center">
             <div class="uk-panel uk-margin-top uk-margin-bottom">
                 <p>
                     <a target="_blank" href="http://weibo.com/lftaoyuan" class="uk-icon-button uk-icon-weibo"></a>
                     <a target="_blank" href="https://github.com/seeways" class="uk-icon-button uk-icon-github"></a>
-                    <a target="_blank" href="www.linkedin.com/in/lftaoyuan" class="uk-icon-button uk-icon-linkedin-square"></a>
+                    <a target="_blank" href="https://www.linkedin.com/in/lftaoyuan/" class="uk-icon-button uk-icon-linkedin-square"></a>
                     <a target="_blank" href="https://twitter.com/lftaoyuan" class="uk-icon-button uk-icon-twitter"></a>
                 </p>
-                <p>Powered by <a href="http://jiataoyuan.com" target="_blank">jiataoyuan</a>. Copyright &copy; 2018. [<a href="/manage/" target="_blank">Manage</a>]</p>
+                <p>Powered by <a href="http://jiataoyuan.com" target="_blank">jiataoyuan</a>. Copyright &copy; 2018. [<a href="/manage/blogs" target="_blank">Manage</a>]</p>
                 <p><a href="http://www.jiataoyuan.com/" target="_blank">http://www.jiataoyuan.com/</a>. All rights reserved.</p>
-                <a target="_blank" href="http://www.w3.org/TR/html5/"><i class="uk-icon-html5" style="font-size:64px; color: #444;"></i></a>
             </div>
         </div>
     </div>
