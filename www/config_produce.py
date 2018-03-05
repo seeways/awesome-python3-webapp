@@ -7,7 +7,7 @@ configs = {
         # 'host': 'localhost',
         # 'port': 3306,
         # 'user': 'root',
-        # 'password': 'TaoYuan123',
+        # 'password': 'TaoYuan.516',
         # 'database': 'awesome'
     },
 }
