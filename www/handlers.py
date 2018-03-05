@@ -167,6 +167,13 @@ async def index(*, page='1'):
     }
 
 
+@get("/about")
+async def about():
+    return {
+        "__template__": "about.html"
+    }
+
+
 # -----------------------------------------------------注册register、登录signin、注销signout-----------------------------------
 
 # 注册页面

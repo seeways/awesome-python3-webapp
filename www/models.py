@@ -35,7 +35,7 @@ class User(Model):
     # 头像
     image = StringField(ddl="varchar(500)")
     # 创建时间
-    Created_at = FloatField(default=time.time)
+    created_at = FloatField(default=time.time)
 
 
 class Blog(Model):

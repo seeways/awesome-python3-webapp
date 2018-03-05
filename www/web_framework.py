@@ -124,8 +124,7 @@ class RequestHandler(object):
         self._all_kw_args = get_all_kw_args(fn)
         self._required_kw_args = get_required_kw_args(fn)
 
-    @asyncio.coroutine
-    def __get_request_content(self, request):
+    async def __get_request_content(self, request):
         request_content = None
 
         if self._has_var_kw_arg or self._has_kw_arg or self._required_kw_args:
@@ -135,12 +134,12 @@ class RequestHandler(object):
                     return web.HTTPBadRequest('Missing Content-Type')
                 ct = request.content_type.lower()
                 if ct.startswith('application/json'):
-                    params = yield from request.json()
+                    params = await request.json()
                     if not isinstance(params, dict):
                         return web.HTTPBadRequest('JSON body must be object.')
                     request_content = params
                 elif ct.startswith('application/x-www-form-urlencoded') or ct.startswith('application/form-data'):
-                    params = yield from request.post()
+                    params = await request.post()
                     request_content = dict(**params)
                 else:
                     return web.HTTPBadRequest('Unsupported Content-Type: %s' % request.content_type)
@@ -165,9 +164,8 @@ class RequestHandler(object):
     # 2.判断URL处理函数是否存在参数，如果存在则根据是POST还是GET方法将request请求内容保存到kw
     # 3.如果kw为空(说明request没有请求内容)，则将match_info列表里面的资源映射表赋值给kw；如果不为空则把命名关键字参数的内容给kw
     # 4.完善_has_request_arg和_required_kw_args属性
-    @asyncio.coroutine
-    def __call__(self, request):
-        request_content = yield from self.__get_request_content(request)
+    async def __call__(self, request):
+        request_content = await self.__get_request_content(request)
         # pdb.set_trace()
         if request_content is None:
             # 参数为空说明没有从request对象中获取到参数,或者URL处理函数没有参数
@@ -219,7 +217,7 @@ class RequestHandler(object):
         logger.info('call with args: %s' % str(request_content))
 
         try:
-            r = yield from self._func(**request_content)
+            r = await self._func(**request_content)
             return r
         except APIError as e:
             return dict(error=e.error, data=e.field, message=e.message)

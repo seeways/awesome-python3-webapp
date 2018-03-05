@@ -75,17 +75,15 @@ async def logger_factory(app, handler):
     return logger_fact
 
 
-@asyncio.coroutine
-def auth_factory(app, handler):
-    @asyncio.coroutine
-    def auth(request):
+async def auth_factory(app, handler):
+    async def auth(request):
         logger.info('check user: %s %s' % (request.method, request.path))
         request.__user__ = None
 
         cookie_str = request.cookies.get(COOKIE_NAME)
         # 获取到cookie字符串, cookies是用分号分割的一组名值对，在python中被看成dict
         if cookie_str:
-            user = yield from cookie2user(cookie_str)
+            user = await cookie2user(cookie_str)
             # 通过反向解析字符串和与数据库对比获取出user
             if user:
                 logger.info('set current user: %s' % user.email)
@@ -95,7 +93,7 @@ def auth_factory(app, handler):
             return web.HTTPFound('/signin')
 
         # 继续执行下一步
-        return (yield from handler(request))
+        return (await handler(request))
 
     return auth
 

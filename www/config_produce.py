@@ -4,10 +4,10 @@
 
 configs = {
     'db': {
-        'host': 'localhost',
-        'port': 3306,
-        'user': 'root',
+        # 'host': 'localhost',
+        # 'port': 3306,
+        # 'user': 'root',
         # 'password': 'TaoYuan123',
-        'database': 'awesome'
+        # 'database': 'awesome'
     },
 }
